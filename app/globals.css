@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FDFBF7;
+  --color-sidebar: #3E3229;
+  --color-card: #FFFFFF;
+  --color-primary: #3E3229;
+  --color-secondary: #8C8C8C;
+  --color-icon-bg: #F5F1EE;
+  --color-chart-bar: #B07D62;
+  --color-chart-light: #D4B49F;
+}
+
+body {
+  color: var(--color-primary);
+  background: var(--color-cream);
+}
+
+button {
+  cursor: pointer;
+}
