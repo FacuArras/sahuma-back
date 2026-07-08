@@ -4,9 +4,10 @@ import EditarProductoClient from './EditarProductoClient';
 
 // ─── Page (Server Component) ──────────────────────────────────────────────────
 
-export default async function EditarProductoPage({ params }: { params: { id: string } }) {
+export default async function EditarProductoPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const producto = await prisma.productoPrincipal.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: { variantes: { orderBy: { createdAt: 'asc' } } },
     });
 
