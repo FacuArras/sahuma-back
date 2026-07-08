@@ -66,7 +66,7 @@ export default function SalesByCategoryChart({ data }: { data: CategoryData[] })
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                 fontSize: 13,
                             }}
-                            formatter={(value: number) => [`${value} uds`, 'Vendidos']}
+                            formatter={(value) => [`${value ?? 0} uds`, 'Vendidos']}
                         />
                         <Legend
                             iconType="circle"

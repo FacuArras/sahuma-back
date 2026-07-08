@@ -68,7 +68,7 @@ export default function TopProductsChart({ data }: { data: TopProductData[] }) {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                             fontSize: 13,
                         }}
-                        formatter={(value: number) => [`${value} unidades`, 'Vendidos']}
+                        formatter={(value) => [`${value ?? 0} unidades`, 'Vendidos']}
                     />
                     <Bar dataKey="unidades" radius={[0, 4, 4, 0]}>
                         {sorted.map((entry, index) => (
