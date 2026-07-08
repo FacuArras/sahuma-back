@@ -1,18 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, ImagePlus, Plus, AlertTriangle, X, Check, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { crearProducto } from '@/app/actions/productos';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Variable {
     id: string;
-    nombre: string;
-    cantidadInicial: string;
-    precio: string;
-    descuento: string;
-    imageUrl?: string;
+    aroma: string;
+    stock: string;
+    precioVenta: string;
+    imagenUrl?: string;
     isNew?: boolean;      // recién añadida, aún no "guardada"
     isEditing?: boolean;  // en modo edición
 }
@@ -26,86 +27,6 @@ async function uploadToCloudinary(file: File): Promise<string> {
     if (!res.ok) throw new Error('Error al subir la imagen');
     const data = await res.json();
     return data.url as string;
-}
-
-// ─── Image Upload Button ──────────────────────────────────────────────────────
-
-function ImageUploadButton({
-    imageUrl,
-    onUploaded,
-    disabled = false,
-}: {
-    imageUrl?: string;
-    onUploaded: (url: string) => void;
-    disabled?: boolean;
-}) {
-    const inputRef = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await uploadToCloudinary(file);
-            onUploaded(url);
-        } catch {
-            alert('Hubo un error al subir la imagen. Intentá de nuevo.');
-        } finally {
-            setUploading(false);
-            // Reset input so same file can be re-selected
-            if (inputRef.current) inputRef.current.value = '';
-        }
-    };
-
-    return (
-        <div className="flex flex-col gap-1">
-            <label className="text-xs text-secondary font-medium">Imagen de la variable</label>
-            <input
-                ref={inputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={disabled || uploading}
-            />
-            <button
-                type="button"
-                disabled={disabled || uploading}
-                onClick={() => inputRef.current?.click()}
-                className={`
-          flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors
-          ${disabled
-                        ? 'border-gray-200 bg-gray-50 text-secondary cursor-default'
-                        : 'border-gray-300 bg-white text-primary hover:bg-gray-50 hover:border-orange-300 cursor-pointer'
-                    }
-        `}
-            >
-                {uploading ? (
-                    <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Subiendo…
-                    </>
-                ) : imageUrl ? (
-                    <>
-                        <Image
-                            src={imageUrl}
-                            alt="preview"
-                            width={20}
-                            height={20}
-                            className="rounded object-cover"
-                        />
-                        Cambiar imagen
-                    </>
-                ) : (
-                    <>
-                        <ImagePlus className="w-4 h-4" />
-                        Subir imagen
-                    </>
-                )}
-            </button>
-        </div>
-    );
 }
 
 // ─── Product Image Upload ─────────────────────────────────────────────────────
@@ -181,7 +102,7 @@ function ProductImageUpload({
     );
 }
 
-// ─── Variable Image Upload (square card — for variable col 1) ───────────────
+// ─── Variable Image Upload ────────────────────────────────────────────────────
 
 function VariableImageUpload({
     imageUrl,
@@ -240,7 +161,7 @@ function VariableImageUpload({
                     <>
                         <Image
                             src={imageUrl}
-                            alt="Imagen de la variable"
+                            alt="Imagen de la variante"
                             fill
                             className="object-cover"
                         />
@@ -264,7 +185,7 @@ function VariableImageUpload({
     );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Input Field ──────────────────────────────────────────────────────────────
 
 function InputField({
     label,
@@ -272,31 +193,40 @@ function InputField({
     onChange,
     readOnly = false,
     placeholder = '',
+    type = 'text',
     className = '',
+    required = false,
 }: {
     label?: string;
     value: string;
     onChange: (v: string) => void;
     readOnly?: boolean;
     placeholder?: string;
+    type?: string;
     className?: string;
+    required?: boolean;
 }) {
     return (
         <div className={`flex flex-col gap-1 ${className}`}>
-            {label && <label className="text-xs text-secondary font-medium">{label}</label>}
+            {label && (
+                <label className="text-xs text-secondary font-medium">
+                    {label}
+                    {required && <span className="text-orange-500 ml-0.5">*</span>}
+                </label>
+            )}
             <input
-                type="text"
+                type={type}
                 value={value}
                 readOnly={readOnly}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
                 className={`
-          border rounded-lg px-3 py-2 text-sm w-full outline-none transition-colors
-          ${readOnly
+                    border rounded-lg px-3 py-2 text-sm w-full outline-none transition-colors
+                    ${readOnly
                         ? 'bg-gray-50 border-gray-200 text-primary cursor-default select-none'
                         : 'bg-white border-gray-300 text-primary focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
                     }
-        `}
+                `}
             />
         </div>
     );
@@ -320,11 +250,11 @@ function DeleteModal({
                     <div className="bg-red-50 p-2 rounded-lg">
                         <AlertTriangle className="w-5 h-5 text-red-500" />
                     </div>
-                    <h3 className="text-lg font-bold text-primary">Eliminar variable</h3>
+                    <h3 className="text-lg font-bold text-primary">Eliminar variante</h3>
                 </div>
                 <p className="text-sm text-secondary mb-6">
-                    ¿Estás seguro de que querés eliminar la variable{' '}
-                    <span className="font-semibold text-primary">"{variableName}"</span>?
+                    ¿Estás seguro de que querés eliminar la variante{' '}
+                    <span className="font-semibold text-primary">&quot;{variableName}&quot;</span>?
                     Esta acción no se puede deshacer.
                 </p>
                 <div className="flex gap-3">
@@ -372,51 +302,47 @@ function VariableCard({
                 : 'border-gray-200 bg-white shadow-sm'
             }
         `}>
-            {/* 3-column layout on lg+, stacked on mobile */}
             <div className="flex flex-col lg:flex-row">
 
                 {/* ── Col 1: Imagen ── */}
                 <div className="lg:w-44 lg:flex-shrink-0 p-4 lg:p-5 flex lg:flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-gray-100">
                     <VariableImageUpload
-                        imageUrl={variable.imageUrl || undefined}
-                        onUploaded={(url) => onChange('imageUrl', url)}
+                        imageUrl={variable.imagenUrl || undefined}
+                        onUploaded={(url) => onChange('imagenUrl', url)}
                         disabled={isReadOnly}
                     />
                 </div>
 
                 {/* ── Col 2: Formulario ── */}
                 <div className="flex-1 p-4 lg:p-5 flex flex-col gap-3 border-b lg:border-b-0 lg:border-r border-gray-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_120px] gap-3">
+                    <InputField
+                        label="Nombre / aroma de la variante"
+                        value={variable.aroma}
+                        onChange={(v) => onChange('aroma', v)}
+                        readOnly={isReadOnly}
+                        placeholder="Ej: Lavanda"
+                        required
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <InputField
-                            label="Nombre de la variable"
-                            value={variable.nombre}
-                            onChange={(v) => onChange('nombre', v)}
-                            readOnly={isReadOnly}
-                            placeholder="Ej: Lavanda"
-                        />
-                        <InputField
-                            label="Cantidad inicial"
-                            value={variable.cantidadInicial}
-                            onChange={(v) => onChange('cantidadInicial', v)}
+                            label="Stock inicial"
+                            value={variable.stock}
+                            onChange={(v) => onChange('stock', v)}
                             readOnly={isReadOnly}
                             placeholder="0"
+                            type="number"
+                            required
                         />
                         <InputField
-                            label="Precio"
-                            value={variable.precio}
-                            onChange={(v) => onChange('precio', v)}
+                            label="Precio de venta"
+                            value={variable.precioVenta}
+                            onChange={(v) => onChange('precioVenta', v)}
                             readOnly={isReadOnly}
                             placeholder="$0"
+                            type="number"
+                            required
                         />
                     </div>
-                    <InputField
-                        label="¿Descuento?"
-                        value={variable.descuento}
-                        onChange={(v) => onChange('descuento', v)}
-                        readOnly={isReadOnly}
-                        placeholder="$0"
-                        className="w-32"
-                    />
                 </div>
 
                 {/* ── Col 3: Acciones ── */}
@@ -424,7 +350,7 @@ function VariableCard({
                     {isEditable ? (
                         <button
                             onClick={onSave}
-                            title="Guardar"
+                            title="Guardar variante"
                             className="p-2 cursor-pointer rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors"
                         >
                             <Check className="w-4 h-4" />
@@ -455,43 +381,55 @@ function VariableCard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function NuevoProductoPage() {
-    // Product form state
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
+
+    // ── Product principal form state ─────────────────────────────────────────
     const [product, setProduct] = useState({
         nombre: '',
         marca: '',
-        precioCompra: '',
+        descripcion: '',
+        imagenPadre: '',
         precioVenta: '',
-        descuento: '',
-        imageUrl: '',
+        precioCompra: '',
     });
 
-    // Variables state — starts with one empty variable ready to fill
+    // ── Sync variante precioVenta when principal changes ─────────────────────
+    const handleProductPrecioVenta = (precio: string) => {
+        setProduct((p) => ({ ...p, precioVenta: precio }));
+        // Auto-fill variantes que aún no fueron guardadas
+        setVariables((prev) =>
+            prev.map((v) => (v.isNew ? { ...v, precioVenta: precio } : v))
+        );
+    };
+
+    // ── Variables state — starts with one empty variable ─────────────────────
     const [variables, setVariables] = useState<Variable[]>([
         {
             id: '1',
-            nombre: '',
-            cantidadInicial: '',
-            precio: '',
-            descuento: '',
-            imageUrl: '',
+            aroma: '',
+            stock: '',
+            precioVenta: '',
+            imagenUrl: '',
             isNew: true,
             isEditing: false,
         },
     ]);
 
-    // Delete confirmation modal state
+    // ── Modal & Form state ───────────────────────────────────────────────────
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [showSuccess, setShowSuccess] = useState(false);
 
-    // ── Handlers ────────────────────────────────────────────────────────────────
+    // ── Handlers ─────────────────────────────────────────────────────────────
 
     const handleAddVariable = () => {
         const newVar: Variable = {
             id: Date.now().toString(),
-            nombre: '',
-            cantidadInicial: '',
-            precio: '',
-            descuento: '',
-            imageUrl: '',
+            aroma: '',
+            stock: '',
+            precioVenta: product.precioVenta,  // auto-fill from principal
+            imagenUrl: '',
             isNew: true,
             isEditing: false,
         };
@@ -512,9 +450,7 @@ export default function NuevoProductoPage() {
         );
     };
 
-    const handleDelete = (id: string) => {
-        setDeleteTarget(id);
-    };
+    const handleDelete = (id: string) => setDeleteTarget(id);
 
     const confirmDelete = () => {
         if (deleteTarget) {
@@ -522,8 +458,6 @@ export default function NuevoProductoPage() {
             setDeleteTarget(null);
         }
     };
-
-    const cancelDelete = () => setDeleteTarget(null);
 
     const handleChangeVariable = (
         id: string,
@@ -535,18 +469,93 @@ export default function NuevoProductoPage() {
         );
     };
 
+    // ── Submit ────────────────────────────────────────────────────────────────
+
+    const handleSubmit = () => {
+        setSubmitError(null);
+
+        // Validaciones del cliente
+        if (!product.nombre.trim()) {
+            setSubmitError('El nombre del producto es requerido.');
+            return;
+        }
+        if (!product.marca.trim()) {
+            setSubmitError('La marca del producto es requerida.');
+            return;
+        }
+        if (!product.imagenPadre.trim()) {
+            setSubmitError('La imagen del producto es requerida.');
+            return;
+        }
+
+        // Incluimos TODAS las variantes que tengan aroma (guardadas o no)
+        const variantesListas = variables.filter((v) => v.aroma.trim() !== '');
+        if (variantesListas.length === 0) {
+            setSubmitError('Debe agregar al menos una variante con nombre/aroma.');
+            return;
+        }
+
+        startTransition(async () => {
+            const precioCompraGlobal = parseFloat(product.precioCompra) || 0;
+            const result = await crearProducto({
+                nombre: product.nombre,
+                marca: product.marca,
+                descripcion: product.descripcion || undefined,
+                imagenPadre: product.imagenPadre,
+                variantes: variantesListas.map((v) => ({
+                    aroma: v.aroma,
+                    stock: parseInt(v.stock) || 0,
+                    precioVenta: parseFloat(v.precioVenta) || 0,
+                    precioCompra: precioCompraGlobal,
+                    imagenUrl: v.imagenUrl || undefined,
+                })),
+            });
+
+            if (result?.success) {
+                setShowSuccess(true);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else if (result && !result.success) {
+                setSubmitError(result.error ?? 'Error desconocido al guardar.');
+            }
+        });
+    };
+
     const deleteTargetVariable = variables.find((v) => v.id === deleteTarget);
 
-    // ── Render ───────────────────────────────────────────────────────────────────
+    // ── Render ────────────────────────────────────────────────────────────────
 
     return (
         <>
+            {/* Loading / Success Overlays */}
+            {(isPending || showSuccess) && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full mx-4 border border-gray-100 flex flex-col items-center justify-center text-center gap-4">
+                        {showSuccess ? (
+                            <>
+                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
+                                    <Check className="w-8 h-8 text-green-600" />
+                                </div>
+                                <h3 className="text-xl font-bold text-primary">Producto creado exitosamente</h3>
+                            </>
+                        ) : (
+                            <>
+                                <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-2" />
+                                <h3 className="text-xl font-bold text-primary">Guardando producto...</h3>
+                                <p className="text-sm text-secondary">Por favor, esperá un momento.</p>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Delete confirmation modal */}
             {deleteTarget && deleteTargetVariable && (
                 <DeleteModal
-                    variableName={deleteTargetVariable.nombre || 'sin nombre'}
+                    variableName={deleteTargetVariable.aroma || 'sin nombre'}
                     onConfirm={confirmDelete}
-                    onCancel={cancelDelete}
+                    onCancel={() => setDeleteTarget(null)}
                 />
             )}
 
@@ -557,7 +566,7 @@ export default function NuevoProductoPage() {
                         Crear producto principal
                     </h1>
                     <p className="text-secondary text-sm">
-                        Acá vas a poder crear el producto principal del que luego saldrán las distintas variables (aromas).
+                        Completá los datos del producto principal. Luego agregá las variantes (aromas) disponibles.
                     </p>
 
                     <hr className='mt-3 mb-6 border-orange-100' />
@@ -565,41 +574,49 @@ export default function NuevoProductoPage() {
                     <div className="flex flex-col md:flex-row gap-6">
                         {/* Image upload */}
                         <ProductImageUpload
-                            imageUrl={product.imageUrl || undefined}
-                            onUploaded={(url) => setProduct((p) => ({ ...p, imageUrl: url }))}
+                            imageUrl={product.imagenPadre || undefined}
+                            onUploaded={(url) => setProduct((p) => ({ ...p, imagenPadre: url }))}
                         />
 
                         {/* Fields */}
-                        <div className="flex-1 flex flex-col gap-4">
+                        <div className="flex-1 flex flex-col gap-5">
                             <InputField
                                 label="Nombre del producto"
                                 value={product.nombre}
                                 onChange={(v) => setProduct((p) => ({ ...p, nombre: v }))}
                                 placeholder="Ej: Sahumerio Flora"
+                                required
                             />
                             <InputField
                                 label="Marca del producto"
                                 value={product.marca}
                                 onChange={(v) => setProduct((p) => ({ ...p, marca: v }))}
                                 placeholder="Ej: Shama"
+                                required
                             />
+                            <div className="grid grid-cols-2 gap-3">
+                                <InputField
+                                    label="Precio de venta"
+                                    value={product.precioVenta}
+                                    onChange={handleProductPrecioVenta}
+                                    placeholder="$0"
+                                    type="number"
+                                    required
+                                />
+                                <InputField
+                                    label="Precio de compra"
+                                    value={product.precioCompra}
+                                    onChange={(v) => setProduct((p) => ({ ...p, precioCompra: v }))}
+                                    placeholder="$0"
+                                    type="number"
+                                    required
+                                />
+                            </div>
                             <InputField
-                                label="Precio de compra del producto"
-                                value={product.precioCompra}
-                                onChange={(v) => setProduct((p) => ({ ...p, precioCompra: v }))}
-                                placeholder="$0"
-                            />
-                            <InputField
-                                label="Precio de venta del producto"
-                                value={product.precioVenta}
-                                onChange={(v) => setProduct((p) => ({ ...p, precioVenta: v }))}
-                                placeholder="$0"
-                            />
-                            <InputField
-                                label="¿Descuento?"
-                                value={product.descuento}
-                                onChange={(v) => setProduct((p) => ({ ...p, descuento: v }))}
-                                placeholder="$0"
+                                label="Descripción (opcional)"
+                                value={product.descripcion}
+                                onChange={(v) => setProduct((p) => ({ ...p, descripcion: v }))}
+                                placeholder="Breve descripción del producto"
                             />
                         </div>
                     </div>
@@ -608,10 +625,10 @@ export default function NuevoProductoPage() {
                 {/* ── Section 2: Variables ── */}
                 <section className='mt-6 mb-3'>
                     <h2 className="text-3xl font-bold text-primary mb-1">
-                        Crear variables del producto principal
+                        Variantes del producto
                     </h2>
                     <p className="text-secondary text-sm">
-                        Acá vas a poder crear las distintas variables (aromas) del producto principal.
+                        Agregá cada variante (aroma) con su stock y precio de venta. Presioná ✓ para guardar cada una.
                     </p>
 
                     <hr className='mt-3 mb-6 border-orange-100' />
@@ -634,23 +651,55 @@ export default function NuevoProductoPage() {
                         <button
                             onClick={handleAddVariable}
                             className="
-                w-full py-3 rounded-2xl border border-dashed border-gray-300 bg-white
-                flex items-center justify-center gap-2
-                text-sm font-medium text-secondary
-                hover:border-orange-400 hover:bg-orange-50/30 hover:text-orange-500
-                transition-colors cursor-pointer
-              "
+                                w-full py-3 rounded-2xl border border-dashed border-gray-300 bg-white
+                                flex items-center justify-center gap-2
+                                text-sm font-medium text-secondary
+                                hover:border-orange-400 hover:bg-orange-50/30 hover:text-orange-500
+                                transition-colors cursor-pointer
+                            "
                         >
-                            Agregar variable
+                            Agregar variante
                             <Plus className="w-4 h-4" />
                         </button>
                     </div>
                 </section>
 
-                {/* ── Save Product Button ── */}
-                <div className="flex justify-end pb-8">
-                    <button className="px-8 py-3 cursor-pointer rounded-xl bg-orange-500 text-white font-semibold hover:bg-orange-600 active:scale-95 transition-all shadow-md shadow-orange-200">
-                        Crear producto nuevo
+                {/* ── Error message ── */}
+                {submitError && (
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
+                        <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-red-700">{submitError}</p>
+                        <button
+                            onClick={() => setSubmitError(null)}
+                            className="ml-auto text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+
+                {/* ── Footer buttons ── */}
+                <div className="flex items-center justify-between pb-8">
+                    <button
+                        onClick={() => router.push('/inventory')}
+                        className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-secondary hover:bg-gray-50 transition-colors"
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isPending}
+                        className="flex items-center gap-2 px-8 py-3 cursor-pointer rounded-xl bg-orange-500 text-white font-semibold hover:bg-orange-600 active:scale-95 transition-all shadow-md shadow-orange-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100"
+                    >
+                        {isPending ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Guardando…
+                            </>
+                        ) : (
+                            'Crear producto'
+                        )}
                     </button>
                 </div>
             </div>

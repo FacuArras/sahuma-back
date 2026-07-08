@@ -1,12 +1,11 @@
-// 'use client';
-
-// import { prisma } from '@/lib/prisma';
-import { TrendingUp, TrendingDown, DollarSign, Wallet, ShoppingBag, PiggyBank } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
+import { TrendingUp, DollarSign, Wallet, PiggyBank } from 'lucide-react';
 import RevenueChart from '@/components/RevenueChart';
 import SalesHistory from '@/components/SalesHistory';
 import TopProductsChart from '@/components/TopProductsChart';
 import SalesByCategoryChart from '@/components/SalesByCategoryChart';
 
+// ── MetricCard ────────────────────────────────────────────────────────────────
 
 function MetricCard({
   title,
@@ -14,7 +13,7 @@ function MetricCard({
   change,
   prefix = '$',
   icon: Icon,
-  trendLabel
+  trendLabel,
 }: {
   title: string;
   value: number;
@@ -36,7 +35,6 @@ function MetricCard({
         </div>
         <h3 className="text-3xl font-bold text-primary">
           {prefix}{value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-          {/* .900 hack for design matching if needed, else standard formatting */}
         </h3>
       </div>
 
@@ -49,7 +47,6 @@ function MetricCard({
         </div>
       )}
 
-      {/* Fallback for items without change percentage like Ahorro Sugerido */}
       {change === undefined && (
         <div className="flex items-center gap-2 text-xs font-medium">
           <span className="text-secondary">{trendLabel}</span>
@@ -59,61 +56,165 @@ function MetricCard({
   );
 }
 
-export default function DashboardPage() {
-  // MOCK DATA
-  const data = {
-    ingresos: { value: 98900, change: 4.1 },
-    ganancias: { value: 62400, change: 3.8 },
-    costes: { value: 36500, change: 4.3 },
-    ahorro: { value: 45000 },
-  };
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function monthRange(year: number, month: number) {
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 1);
+  return { start, end };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default async function DashboardPage() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+
+  // ── Current month boundaries ──────────────────────────────────────────────
+  const { start: monthStart, end: monthEnd } = monthRange(currentYear, currentMonth);
+
+  // ── Ingresos: sum of totalVenta for sales this month ──────────────────────
+  const ventasAggregate = await prisma.venta.aggregate({
+    _sum: { totalVenta: true },
+    where: { fecha: { gte: monthStart, lt: monthEnd } },
+  });
+  const ingresos = ventasAggregate._sum.totalVenta ?? 0;
+
+  // ── Costes: sum of costoTotal for orders this month ───────────────────────
+  const pedidosAggregate = await prisma.pedido.aggregate({
+    _sum: { costoTotal: true },
+    where: { fecha: { gte: monthStart, lt: monthEnd } },
+  });
+  const costes = pedidosAggregate._sum.costoTotal ?? 0;
+
+  // ── Ganancias: ingresos - costes, minimum 0 ───────────────────────────────
+  const ganancias = Math.max(0, ingresos - costes);
+
+  // ── Ahorro: costes * 0.25 ─────────────────────────────────────────────────
+  const ahorro = Math.round(costes * 0.25);
+
+  // ── Total sales count this month ──────────────────────────────────────────
+  const totalVentas = await prisma.venta.count({
+    where: { fecha: { gte: monthStart, lt: monthEnd } },
+  });
+
+  // ── RevenueChart: last 6 months of ingresos + costes ─────────────────────
+  const revenueData = await Promise.all(
+    Array.from({ length: 6 }, async (_, i) => {
+      // Go back i months from the current month (0 = current, 5 = 5 months ago)
+      const offset = 5 - i;
+      let m = currentMonth - offset;
+      let y = currentYear;
+      if (m < 0) { m += 12; y -= 1; }
+      const { start, end } = monthRange(y, m);
+
+      const [vAgg, pAgg] = await Promise.all([
+        prisma.venta.aggregate({ _sum: { totalVenta: true }, where: { fecha: { gte: start, lt: end } } }),
+        prisma.pedido.aggregate({ _sum: { costoTotal: true }, where: { fecha: { gte: start, lt: end } } }),
+      ]);
+
+      return {
+        name: MESES_CORTO[m],
+        ingresos: vAgg._sum.totalVenta ?? 0,
+        costes: pAgg._sum.costoTotal ?? 0,
+      };
+    })
+  );
+
+  // ── TopProductsChart: items sold this month grouped by nombre+aroma ───────
+  const itemsVendidos = await prisma.itemVenta.findMany({
+    where: { venta: { fecha: { gte: monthStart, lt: monthEnd } } },
+    select: { nombre: true, aroma: true, cantidad: true },
+  });
+
+  const topProductsMap = new Map<string, number>();
+  for (const item of itemsVendidos) {
+    const key = `${item.nombre} - ${item.aroma}`;
+    topProductsMap.set(key, (topProductsMap.get(key) ?? 0) + item.cantidad);
+  }
+  const topProductsData = Array.from(topProductsMap.entries())
+    .map(([nombre, unidades]) => ({ nombre, unidades }))
+    .sort((a, b) => b.unidades - a.unidades)
+    .slice(0, 8);
+
+  // ── SalesByCategoryChart: items sold this month grouped by marca ──────────
+  const marcaMap = new Map<string, number>();
+  for (const item of itemsVendidos) {
+    marcaMap.set(item.nombre, (marcaMap.get(item.nombre) ?? 0) + item.cantidad);
+  }
+  const categoryData = Array.from(marcaMap.entries())
+    .map(([nombre, valor]) => ({ nombre, valor }))
+    .sort((a, b) => b.valor - a.valor);
+
+  // ── SalesHistory: last 5 sales this month ─────────────────────────────────
+  const recentVentas = await prisma.venta.findMany({
+    where: { fecha: { gte: monthStart, lt: monthEnd } },
+    orderBy: { fecha: 'desc' },
+    take: 5,
+    include: { items: { select: { nombre: true, aroma: true } } },
+  });
+
+  const salesHistoryData = recentVentas.map((v) => ({
+    id: v.id,
+    totalVenta: v.totalVenta,
+    metodoPago: v.metodoPago,
+    pagado: v.pagado,
+    fecha: v.fecha.toISOString(),
+    itemCount: v.items.length,
+    items: v.items,
+  }));
 
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-primary mb-1">¡Bienvenida de vuelta!</h1>
-        <p className="text-secondary text-sm">Resumen de tu tienda de sahumerios - Febrero 2026 | <span className="text-orange-400">7 ventas completadas, 3 pendientes de pago</span></p>
+        <p className="text-secondary text-sm">
+          Resumen de tu tienda de sahumerios - {MESES[currentMonth]} {currentYear} |{' '}
+          <span className="text-orange-400">
+            {totalVentas} {totalVentas === 1 ? 'venta registrada' : 'ventas registradas'} este mes
+          </span>
+        </p>
         <hr className="mt-3 border-orange-100" />
       </div>
-
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Ingresos"
-          value={data.ingresos.value}
-          change={data.ingresos.change}
+          value={ingresos}
           icon={DollarSign}
         />
         <MetricCard
           title="Ganancias"
-          value={data.ganancias.value}
-          change={data.ganancias.change}
-          icon={TrendingUp} // Or proper graph icon
+          value={ganancias}
+          icon={TrendingUp}
         />
         <MetricCard
           title="Costes"
-          value={data.costes.value}
-          change={data.costes.change} // Red usually means bad for costs increasing, but following design color
+          value={costes}
           icon={Wallet}
         />
         <MetricCard
           title="Ahorro"
-          value={data.ahorro.value}
+          value={ahorro}
           icon={PiggyBank}
-          trendLabel="Dinero en efectivo a tener para el próximo mes"
+          trendLabel="25% del costo mensual para el próximo mes"
         />
       </div>
+
       <div className="flex flex-col gap-6">
-        <RevenueChart />
+        <RevenueChart data={revenueData} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          <TopProductsChart />
-          <SalesByCategoryChart />
+          <TopProductsChart data={topProductsData} />
+          <SalesByCategoryChart data={categoryData} />
         </div>
-        <SalesHistory />
+        <SalesHistory sales={salesHistoryData} />
       </div>
     </div>
   );
 }
-

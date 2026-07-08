@@ -56,7 +56,7 @@ export default function Sidebar() {
             {/* Navigation */}
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-hidden">
                 {navItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                     return (
                         <Link
                             key={item.href}
@@ -66,7 +66,7 @@ export default function Sidebar() {
                                 'flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-sm font-medium',
                                 collapsed ? 'justify-center' : '',
                                 isActive
-                                    ? 'bg-white/10 text-white'
+                                    ? 'bg-white/20 text-white'
                                     : 'text-white/60 hover:text-white hover:bg-white/5'
                             )}
                         >

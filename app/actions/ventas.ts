@@ -5,11 +5,11 @@ import { revalidatePath } from 'next/cache';
 
 export async function registrarVenta(formData: FormData) {
     try {
-        const productId = formData.get('productId') as string;
+        const varianteId = formData.get('varianteId') as string;
         const cantidad = parseInt(formData.get('cantidad') as string);
         const precioUnitario = parseFloat(formData.get('precioUnitario') as string);
 
-        if (!productId || !cantidad || !precioUnitario) {
+        if (!varianteId || !cantidad || !precioUnitario) {
             return {
                 success: false,
                 error: 'Datos incompletos'
@@ -17,21 +17,22 @@ export async function registrarVenta(formData: FormData) {
         }
 
         // Verificar stock disponible
-        const producto = await prisma.product.findUnique({
-            where: { id: productId },
+        const variante = await prisma.productoVariante.findUnique({
+            where: { id: varianteId },
+            include: { productoPrincipal: true },
         });
 
-        if (!producto) {
+        if (!variante) {
             return {
                 success: false,
-                error: 'Producto no encontrado'
+                error: 'Variante de producto no encontrada'
             };
         }
 
-        if (producto.stock < cantidad) {
+        if (variante.stock < cantidad) {
             return {
                 success: false,
-                error: `Stock insuficiente. Disponible: ${producto.stock}`
+                error: `Stock insuficiente. Disponible: ${variante.stock}`
             };
         }
 
@@ -46,13 +47,13 @@ export async function registrarVenta(formData: FormData) {
                     tipo: 'VENTA',
                     monto: montoTotal,
                     cantidad: cantidad,
-                    descripcion: `Venta de ${cantidad}x ${producto.nombre}`,
-                    productId: productId,
+                    descripcion: `Venta de ${cantidad}x ${variante.productoPrincipal.nombre} - ${variante.aroma}`,
+                    varianteId: varianteId,
                 },
             }),
             // Descontar stock
-            prisma.product.update({
-                where: { id: productId },
+            prisma.productoVariante.update({
+                where: { id: varianteId },
                 data: {
                     stock: {
                         decrement: cantidad,
@@ -64,12 +65,12 @@ export async function registrarVenta(formData: FormData) {
         // Revalidar las páginas que muestran estos datos
         revalidatePath('/');
         revalidatePath('/ventas');
-        revalidatePath('/productos');
+        revalidatePath('/inventory');
 
         return {
             success: true,
             data: result[0],
-            message: `Venta registrada exitosamente. Stock actualizado: ${producto.stock - cantidad}`
+            message: `Venta registrada exitosamente. Stock actualizado: ${variante.stock - cantidad}`
         };
     } catch (error) {
         console.error('Error al registrar venta:', error);
@@ -84,7 +85,7 @@ export async function registrarGasto(formData: FormData) {
     try {
         const monto = parseFloat(formData.get('monto') as string);
         const descripcion = formData.get('descripcion') as string;
-        const productId = formData.get('productId') as string | null;
+        const varianteId = formData.get('varianteId') as string | null;
 
         if (!monto || !descripcion) {
             return {
@@ -98,7 +99,7 @@ export async function registrarGasto(formData: FormData) {
                 tipo: 'GASTO',
                 monto: monto,
                 descripcion: descripcion,
-                productId: productId || undefined,
+                varianteId: varianteId || undefined,
             },
         });
 

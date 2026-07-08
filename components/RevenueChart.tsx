@@ -2,21 +2,18 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const data = [
-    { name: 'Sep', ingresos: 62000, costes: 24000 },
-    { name: 'Oct', ingresos: 78000, costes: 29000 },
-    { name: 'Nov', ingresos: 85000, costes: 31000 },
-    { name: 'Dic', ingresos: 120000, costes: 42000 },
-    { name: 'Ene', ingresos: 95000, costes: 34500 },
-    { name: 'Feb', ingresos: 98900, costes: 36500 },
-];
+export interface RevenueChartData {
+    name: string;
+    ingresos: number;
+    costes: number;
+}
 
-export default function RevenueChart() {
+export default function RevenueChart({ data }: { data: RevenueChartData[] }) {
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-[400px] flex flex-col">
             <div className="mb-6">
                 <h3 className="text-lg font-bold text-primary">Ingresos vs Costes</h3>
-                <p className="text-sm text-secondary">Ultimos 6 meses de actividad financiera</p>
+                <p className="text-sm text-secondary">Últimos 6 meses de actividad financiera</p>
             </div>
 
             <div className="flex-1 w-full min-h-0">
@@ -43,6 +40,7 @@ export default function RevenueChart() {
                         <Tooltip
                             cursor={{ fill: 'transparent' }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                            formatter={(value: number) => [`$${value.toLocaleString('es-AR')}`, undefined]}
                         />
                         <Legend
                             iconType="circle"

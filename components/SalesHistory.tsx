@@ -1,89 +1,24 @@
 'use client';
 
-import { DollarSign } from 'lucide-react';
 import clsx from 'clsx';
 
-type SaleStatus = 'Completado' | 'Pendiente' | 'Cancelado';
-
-interface Sale {
+export interface RecentSale {
   id: string;
-  customerName: string;
-  orderId: string;
+  totalVenta: number;
+  metodoPago: string;
+  pagado: boolean;
+  fecha: string; // ISO string
   itemCount: number;
-  amount: number;
-  date: string;
-  status: SaleStatus;
+  items: { nombre: string; aroma: string }[];
 }
 
-// Mock data - últimas 5 ventas
-const recentSales: Sale[] = [
-  {
-    id: '1',
-    customerName: 'María González',
-    orderId: 'VNT-015',
-    itemCount: 3,
-    amount: 8900,
-    date: '2026-02-17',
-    status: 'Pendiente'
-  },
-  {
-    id: '2',
-    customerName: 'Carlos Méndez',
-    orderId: 'VNT-014',
-    itemCount: 1,
-    amount: 4200,
-    date: '2026-02-16',
-    status: 'Completado'
-  },
-  {
-    id: '3',
-    customerName: 'Lucía Fernández',
-    orderId: 'VNT-013',
-    itemCount: 5,
-    amount: 12750,
-    date: '2026-02-15',
-    status: 'Completado'
-  },
-  {
-    id: '4',
-    customerName: 'Roberto Díaz',
-    orderId: 'VNT-012',
-    itemCount: 2,
-    amount: 6800,
-    date: '2026-02-14',
-    status: 'Completado'
-  },
-  {
-    id: '5',
-    customerName: 'Ana Martínez',
-    orderId: 'VNT-011',
-    itemCount: 4,
-    amount: 10500,
-    date: '2026-02-13',
-    status: 'Completado'
-  }
-];
-
-export default function SalesHistory() {
-  const getStatusStyles = (status: SaleStatus) => {
-    switch (status) {
-      case 'Completado':
-        return 'bg-green-50 text-green-700';
-      case 'Pendiente':
-        return 'bg-orange-50 text-orange-600';
-      case 'Cancelado':
-        return 'bg-red-50 text-red-600';
-      default:
-        return 'bg-gray-50 text-gray-600';
-    }
-  };
-
+export default function SalesHistory({ sales }: { sales: RecentSale[] }) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-AR', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
+    return date.toLocaleDateString('es-AR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     });
   };
 
@@ -92,44 +27,55 @@ export default function SalesHistory() {
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-lg font-bold text-primary mb-1">Ventas Recientes</h3>
-        <p className="text-sm text-secondary">Últimas 5 ventas registradas</p>
+        <p className="text-sm text-secondary">Últimas 5 ventas registradas este mes</p>
       </div>
 
-      {/* Sales List */}
-      <div className="space-y-4">
-        {recentSales.map((sale) => (
-          <div 
-            key={sale.id} 
-            className="flex items-center justify-between py-3 px-4 rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            {/* Left side - Customer info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h4 className="font-semibold text-primary">{sale.customerName}</h4>
-                <span 
-                  className={clsx(
-                    'px-2 py-0.5 rounded-md text-xs font-medium',
-                    getStatusStyles(sale.status)
-                  )}
-                >
-                  {sale.status}
-                </span>
+      {sales.length === 0 ? (
+        <p className="text-sm text-secondary text-center py-6">Sin ventas registradas este mes</p>
+      ) : (
+        <div className="space-y-4">
+          {sales.map((sale) => {
+            const label = sale.items.length > 0
+              ? `${sale.items[0].nombre} ${sale.items[0].aroma}${sale.items.length > 1 ? ` +${sale.items.length - 1} más` : ''}`
+              : '—';
+
+            return (
+              <div
+                key={sale.id}
+                className="flex items-center justify-between py-3 px-4 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                {/* Left side */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h4 className="font-semibold text-primary">{label}</h4>
+                    <span
+                      className={clsx(
+                        'px-2 py-0.5 rounded-md text-xs font-medium',
+                        sale.pagado
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-orange-50 text-orange-600'
+                      )}
+                    >
+                      {sale.pagado ? 'Pagado' : 'Pendiente'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary">
+                    {sale.itemCount} {sale.itemCount === 1 ? 'item' : 'items'} · {sale.metodoPago}
+                  </p>
+                </div>
+
+                {/* Right side */}
+                <div className="text-right">
+                  <p className="font-bold text-primary mb-1">
+                    $ {sale.totalVenta.toLocaleString('es-AR')}
+                  </p>
+                  <p className="text-xs text-secondary">{formatDate(sale.fecha)}</p>
+                </div>
               </div>
-              <p className="text-xs text-secondary">
-                {sale.orderId} - {sale.itemCount} {sale.itemCount === 1 ? 'item' : 'items'}
-              </p>
-            </div>
-
-            {/* Right side - Amount and Date */}
-            <div className="text-right">
-              <p className="font-bold text-primary mb-1">
-                $ {sale.amount.toLocaleString('es-AR')}
-              </p>
-              <p className="text-xs text-secondary">{formatDate(sale.date)}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

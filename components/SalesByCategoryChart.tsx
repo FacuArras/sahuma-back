@@ -4,31 +4,38 @@ import {
     PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 
-const data = [
-    { nombre: 'Sahumerios Premium', valor: 38 },
-    { nombre: 'Sahumerios Naturales', valor: 27 },
-    { nombre: 'Conos', valor: 14 },
-    { nombre: 'Sahumerios Artesanales', valor: 10 },
-    { nombre: 'Kits', valor: 7 },
-    { nombre: 'Accesorios', valor: 4 },
-];
+export interface CategoryData {
+    nombre: string;
+    valor: number;
+}
 
-// Paleta de colores tierra — consistente con globals.css
 const COLORS = [
-    '#B07D62', // chart-bar (terracota)
-    '#7A5C3E', // marrón oscuro
-    '#D4B49F', // chart-light (arena)
-    '#C9956F', // naranja tierra
-    '#4E6B5E', // verde oliva oscuro
-    '#8FAF9F', // verde oliva claro
+    '#B07D62',
+    '#7A5C3E',
+    '#D4B49F',
+    '#C9956F',
+    '#4E6B5E',
+    '#8FAF9F',
 ];
 
-export default function SalesByCategoryChart() {
+export default function SalesByCategoryChart({ data }: { data: CategoryData[] }) {
+    if (data.length === 0) {
+        return (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
+                <div className="mb-5">
+                    <h3 className="text-lg font-bold text-primary">Ventas por Marca</h3>
+                    <p className="text-sm text-orange-400">Distribución de ingresos por marca este mes</p>
+                </div>
+                <p className="text-sm text-secondary py-8 text-center">Sin ventas registradas este mes</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
             <div className="mb-5">
-                <h3 className="text-lg font-bold text-primary">Ventas por Categoría</h3>
-                <p className="text-sm text-orange-400">Distribución de ingresos por tipo de producto</p>
+                <h3 className="text-lg font-bold text-primary">Ventas por Marca</h3>
+                <p className="text-sm text-orange-400">Distribución de ingresos por marca este mes</p>
             </div>
 
             <div className="flex-1 flex items-center justify-center">
@@ -59,7 +66,7 @@ export default function SalesByCategoryChart() {
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                 fontSize: 13,
                             }}
-                            formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Participación']}
+                            formatter={(value: number) => [`${value} uds`, 'Vendidos']}
                         />
                         <Legend
                             iconType="circle"

@@ -20,7 +20,7 @@ export default function BottomNav() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t rounded-t-lg border-secondary/10 px-6 py-3 z-50">
             <div className="flex justify-between items-center">
                 {navItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                     return (
                         <Link
                             key={item.href}

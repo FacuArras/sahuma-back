@@ -5,27 +5,36 @@ import {
     Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-const data = [
-    { nombre: 'Palo Santo', unidades: 17 },
-    { nombre: 'Lavanda', unidades: 14 },
-    { nombre: 'Conos de Sándalo', unidades: 8 },
-    { nombre: 'Copal', unidades: 8 },
-    { nombre: 'Conos de Canela', unidades: 6 },
-    { nombre: 'Cedrón', unidades: 5 },
-];
+export interface TopProductData {
+    nombre: string;
+    unidades: number;
+}
 
-// Ordenamos de mayor a menor para que el más vendido quede arriba
-const sorted = [...data].sort((a, b) => b.unidades - a.unidades);
+const BAR_COLOR = '#B07D62';
+const BAR_COLOR_LIGHT = '#D4B49F';
 
-const BAR_COLOR = '#B07D62';       // var(--color-chart-bar) — terracota
-const BAR_COLOR_LIGHT = '#D4B49F'; // var(--color-chart-light) — arena
+export default function TopProductsChart({ data }: { data: TopProductData[] }) {
+    const sorted = [...data].sort((a, b) => b.unidades - a.unidades).slice(0, 8);
+    const maxUnidades = Math.max(...sorted.map(d => d.unidades), 1);
+    const domainMax = Math.ceil(maxUnidades / 5) * 5 || 5;
 
-export default function TopProductsChart() {
+    if (sorted.length === 0) {
+        return (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                <div className="mb-5">
+                    <h3 className="text-lg font-bold text-primary">Productos Más Vendidos</h3>
+                    <p className="text-sm text-orange-400">Ranking de unidades vendidas este mes</p>
+                </div>
+                <p className="text-sm text-secondary py-8 text-center">Sin ventas registradas este mes</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
             <div className="mb-5">
                 <h3 className="text-lg font-bold text-primary">Productos Más Vendidos</h3>
-                <p className="text-sm text-orange-400">Ranking de unidades vendidas en los últimos 6 meses</p>
+                <p className="text-sm text-orange-400">Ranking de unidades vendidas este mes</p>
             </div>
 
             <ResponsiveContainer width="100%" height={sorted.length * 52}>
@@ -41,8 +50,7 @@ export default function TopProductsChart() {
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: '#8C8C8C', fontSize: 12 }}
-                        domain={[0, 20]}
-                        ticks={[0, 5, 10, 15, 20]}
+                        domain={[0, domainMax]}
                     />
                     <YAxis
                         type="category"
@@ -60,7 +68,7 @@ export default function TopProductsChart() {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                             fontSize: 13,
                         }}
-                        formatter={(value: number | undefined) => [`${value ?? 0} unidades`, 'Vendidos']}
+                        formatter={(value: number) => [`${value} unidades`, 'Vendidos']}
                     />
                     <Bar dataKey="unidades" radius={[0, 4, 4, 0]}>
                         {sorted.map((entry, index) => (
