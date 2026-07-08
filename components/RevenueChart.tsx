@@ -40,7 +40,7 @@ export default function RevenueChart({ data }: { data: RevenueChartData[] }) {
                         <Tooltip
                             cursor={{ fill: 'transparent' }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                            formatter={(value: number) => [`$${value.toLocaleString('es-AR')}`, undefined]}
+                            formatter={(value) => [`$${(value ?? 0).toLocaleString('es-AR')}`, undefined]}
                         />
                         <Legend
                             iconType="circle"
