@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { TrendingUp, DollarSign, Wallet, PiggyBank } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 import RevenueChart from '@/components/RevenueChart';
 import SalesHistory from '@/components/SalesHistory';
 import TopProductsChart from '@/components/TopProductsChart';

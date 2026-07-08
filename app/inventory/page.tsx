@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { getStockStatus } from '@/lib/mockData';
+
+export const dynamic = 'force-dynamic';
 import InventarioClient, { type TablaRowDB, type InventarioStats } from './InventarioClient';
 
 // ─── Fetch from DB ────────────────────────────────────────────────────────────
